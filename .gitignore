@@ -1,5 +1,4 @@
 kprowl
 *.o
 *.skel.h
-vmlinux.h
 .cache/
