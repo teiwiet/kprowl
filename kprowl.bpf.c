@@ -14,4 +14,5 @@ int handle_execve(struct trace_event_raw_sys_enter *ctx){
     bpf_probe_read_user_str(&fname,sizeof(fname),(const char*)ctx->args[0]);
     bpf_printk("EXEC pid=%d | file=%s",pid,fname);
     return 0;
+
 }
