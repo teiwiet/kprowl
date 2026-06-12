@@ -1,6 +1,5 @@
 #ifndef __KPROWL_H
 #define __KPROWL_H
-#include <linux/types.h>
 #define TASK_COMM_LEN 16
 #define MAX_FILENAME_LEN 256
 struct event{
