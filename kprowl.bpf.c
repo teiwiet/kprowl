@@ -13,11 +13,22 @@ struct {
     __uint(max_entries,256*1024);
 }events SEC(".maps");
 
+struct {
+    __uint(type,BPF_MAP_TYPE_HASH);
+    __uint(max_entries,8192);
+    __type(key,__u32);
+    __type(value,__u8);
+} tracked SEC(".maps");
+
 SEC("tp/syscalls/sys_enter_execve")
 int handle_execve(struct trace_event_raw_sys_enter *ctx){
+    pid_t pid = bpf_get_current_pid_tgid() >> 32;
+    if(!bpf_map_lookup_elem(&tracked,&pid)){
+    }
     struct event *e = bpf_ringbuf_reserve(&events,sizeof(*e),0);
     if(!e) return 0;
-    e->pid = bpf_get_current_pid_tgid() >> 32;
+
+    e->pid = pid;
     e->uid = bpf_get_current_uid_gid() & 0xffffffff;
     bpf_get_current_comm(&e->comm,sizeof(e->comm));
     bpf_probe_read_user_str(&e->filename,sizeof(e->filename),(const char*)ctx->args[0]);
