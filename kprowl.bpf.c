@@ -20,6 +20,7 @@ struct {
     __type(value,__u8);
 } tracked SEC(".maps");
 
+
 SEC("tp/syscalls/sys_enter_execve")
 int handle_execve(struct trace_event_raw_sys_enter *ctx){
     pid_t pid = bpf_get_current_pid_tgid() >> 32;
@@ -34,5 +35,19 @@ int handle_execve(struct trace_event_raw_sys_enter *ctx){
     bpf_get_current_comm(&e->comm,sizeof(e->comm));
     bpf_probe_read_user_str(&e->filename,sizeof(e->filename),(const char*)ctx->args[0]);
     bpf_ringbuf_submit(e,0);
+    return 0;
+}
+
+SEC("tp/syscalls/sys_enter_openat")
+int handle_openat(struct trace_event_raw_sys_enter *ctx){
+    char path[64];
+    bpf_probe_read_user_str(&path,sizeof(path),(const char*)ctx->args[1]);
+    char target[] = "/etc/passwd";
+    for(int i = 0;i<sizeof(target);i++){
+        if(path[i]!=target[i]){
+            return 0;
+        }
+    }
+
     return 0;
 }
