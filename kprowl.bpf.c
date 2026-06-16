@@ -48,6 +48,12 @@ int handle_openat(struct trace_event_raw_sys_enter *ctx){
             return 0;
         }
     }
-
+    
+    struct event *e = bpf_ringbuf_reserve(&events,sizeof(*e),0);
+    if(!e) return 0;
+    e->pid = bpf_get_current_pid_tgid() >> 32;
+    e->uid =  bpf_get_current_uid_gid() & 0xffffffff;
+    bpf_get_current_comm(&e->comm,sizeof(e->comm));
+    bpf_probe_read_user_str(&e->filename,sizeof(e->filename),(const char*)ctx->args[1]);
     return 0;
 }
