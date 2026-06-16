@@ -24,6 +24,7 @@ SEC("tp/syscalls/sys_enter_execve")
 int handle_execve(struct trace_event_raw_sys_enter *ctx){
     pid_t pid = bpf_get_current_pid_tgid() >> 32;
     if(!bpf_map_lookup_elem(&tracked,&pid)){
+        return 0;
     }
     struct event *e = bpf_ringbuf_reserve(&events,sizeof(*e),0);
     if(!e) return 0;
