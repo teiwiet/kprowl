@@ -81,6 +81,7 @@ int main(int argc,char **argv){
     }
 
     if(child == 0){
+        raise(SIGSTOP);
         execvp(argv[1],&argv[1]);
         perror("execvp");
         _exit(127);
@@ -89,6 +90,7 @@ int main(int argc,char **argv){
     __u8 one = 1;
 
     bpf_map__update_elem(tracked,&pid,sizeof(pid),&one,sizeof(one),BPF_ANY);
+    kill(child,SIGCONT);
     printf("[kprowl] tracing pid %d (%s)\n",child,argv[1]);
     while(running){
         int err = ring_buffer__poll(rb,100);
