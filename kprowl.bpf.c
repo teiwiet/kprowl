@@ -27,9 +27,25 @@ struct {
     __type(value, struct wl_val);
 } watchlist SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, __u8);
+} kprowl_cfg SEC(".maps");
+
 static __always_inline int is_tracked(pid_t pid)
 {
     return bpf_map_lookup_elem(&tracked, &pid) != NULL;
+}
+
+static __always_inline int should_report(pid_t pid)
+{
+    __u32 zero = 0;
+    __u8 *sw = bpf_map_lookup_elem(&kprowl_cfg, &zero);
+    if (sw && *sw)
+        return 1;
+    return is_tracked(pid);
 }
 
 SEC("tp/syscalls/sys_enter_execve")
@@ -57,7 +73,7 @@ SEC("kprobe/security_file_open")
 int BPF_KPROBE(handle_file_open, struct file *file)
 {
     pid_t pid = bpf_get_current_pid_tgid() >> 32;
-    if (!is_tracked(pid))
+    if (!should_report(pid))
         return 0;
 
     struct file_key key = {};
@@ -84,7 +100,7 @@ SEC("kprobe/security_socket_connect")
 int BPF_KPROBE(handle_connect, struct socket *sock, struct sockaddr *address, int addrlen)
 {
     pid_t pid = bpf_get_current_pid_tgid() >> 32;
-    if (!is_tracked(pid))
+    if (!should_report(pid))
         return 0;
 
     __u16 family = BPF_CORE_READ(address, sa_family);
@@ -107,4 +123,3 @@ int BPF_KPROBE(handle_connect, struct socket *sock, struct sockaddr *address, in
     bpf_ringbuf_submit(e, 0);
     return 0;
 }
-
