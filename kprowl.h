@@ -7,6 +7,7 @@
 enum event_type {
     EVENT_EXEC = 0,
     EVENT_FILE_OPEN,
+    EVENT_CONNECT,
 };
 
 struct file_key {
@@ -29,6 +30,11 @@ struct event {
         struct {
             char path[MAX_FILENAME_LEN];
         } file;
+        struct {
+            __u32 daddr;
+            __u16 dport;
+            __u16 family;
+        } net;
     };
 };
 
