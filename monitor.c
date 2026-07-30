@@ -50,6 +50,41 @@ static int on_event(void *ctx, void *data, size_t len)
     return 0;
 }
 
+static void load_watchlist(struct bpf_map *wl)
+{
+    const char *home = getenv("HOME");
+    if (!home) home = "/root";
+
+    char ssh_rsa[512], ssh_ed[512], aws[512];
+    snprintf(ssh_rsa, sizeof(ssh_rsa), "%s/.ssh/id_rsa", home);
+    snprintf(ssh_ed, sizeof(ssh_ed), "%s/.ssh/id_ed25519", home);
+    snprintf(aws, sizeof(aws), "%s/.aws/credentials", home);
+
+    const char *paths[] = {
+        "/etc/shadow", "/etc/sudoers", "/etc/gshadow", "/etc/ld.so.preload",
+        ssh_rsa, ssh_ed, aws,
+        NULL
+    };
+
+    int fd = bpf_map__fd(wl);
+    int n = 0;
+    for (int i = 0; paths[i]; i++) {
+        struct stat st;
+        if (stat(paths[i], &st) != 0)
+            continue;
+
+        struct file_key key = { .ino = st.st_ino };
+        struct wl_val val = {0};
+        strncpy(val.path, paths[i], sizeof(val.path) - 1);
+
+        if (bpf_map_update_elem(fd, &key, &val, BPF_ANY) == 0) {
+            n++;
+            fprintf(stderr, "watchlist: + %-32s ino=%llu\n",
+                    paths[i], (unsigned long long)key.ino);
+        }
+    }
+    fprintf(stderr, "watchlist: %d entries loaded\n", n);
+}
 int main(){
 
 }
