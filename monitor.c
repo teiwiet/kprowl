@@ -85,6 +85,46 @@ static void load_watchlist(struct bpf_map *wl)
     }
     fprintf(stderr, "watchlist: %d entries loaded\n", n);
 }
-int main(){
+int main(void)
+{
+    struct bpf_object *obj;
+    struct ring_buffer *rb;
 
+    obj = bpf_object__open_file("kprowl.bpf.o", NULL);
+    if (!obj) { fprintf(stderr, "Failed to open BPF object\n"); return 1; }
+
+    if (bpf_object__load(obj)) { fprintf(stderr, "Failed to load into kernel (try sudo)\n"); return 1; }
+
+    struct bpf_program *prog;
+    bpf_object__for_each_program(prog, obj)
+        if (!bpf_program__attach(prog))
+            fprintf(stderr, "warn: could not attach %s: %s\n",
+                    bpf_program__name(prog), strerror(errno));
+
+    struct bpf_map *events_map = bpf_object__find_map_by_name(obj, "events");
+    struct bpf_map *watchlist = bpf_object__find_map_by_name(obj, "watchlist");
+    struct bpf_map *cfg = bpf_object__find_map_by_name(obj, "kprowl_cfg");
+    if (!events_map || !watchlist || !cfg) { fprintf(stderr, "Failed to find maps\n"); return 1; }
+
+    __u32 zero = 0;
+    __u8 one = 1;
+    bpf_map_update_elem(bpf_map__fd(cfg), &zero, &one, BPF_ANY);
+
+    load_watchlist(watchlist);
+
+    rb = ring_buffer__new(bpf_map__fd(events_map), on_event, NULL, NULL);
+    if (!rb) { fprintf(stderr, "Failed to create ring buffer\n"); return 1; }
+
+    signal(SIGINT, handle_sigint);
+    printf("[kprowl] system-wide monitor running. Ctrl-C to stop.\n");
+
+    while (running) {
+        int err = ring_buffer__poll(rb, 200);
+        if (err == -EINTR) continue;
+        if (err < 0) { fprintf(stderr, "poll error: %d\n", err); break; }
+    }
+
+    ring_buffer__free(rb);
+    bpf_object__close(obj);
+    return 0;
 }
